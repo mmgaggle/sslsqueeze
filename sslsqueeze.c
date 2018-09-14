@@ -6,12 +6,12 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  * See the GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, see <http://www.gnu.org/licenses>.
  */
@@ -104,6 +104,7 @@ typedef struct {
 } state;
 
 static void setup_record(record *, const byte, const u_short);
+static void setup_record2(record *, const byte, const u_short);
 static u_short rec_len(const record *);
 static void read_cb(struct bufferevent *, void *);
 static void write_cb(struct bufferevent *, void *);
@@ -148,7 +149,7 @@ int main(int argc, char *argv[]) {
     keysize=(keysize+7)/8; /* convert to number of bytes */
 
     clients=atoi(argv[4]);
-    if(clients<1 || clients>1000) {
+    if(clients<1 || clients>50000) {
         fprintf(stderr, "Number of clients should be a number between 1 and 1000\n");
         return 1;
     }
@@ -168,7 +169,7 @@ int main(int argc, char *argv[]) {
     r1.fragment.length[1]=sizeof r1.fragment.client_hello>>8;
     r1.fragment.length[2]=sizeof r1.fragment.client_hello&0xff;
     r1.fragment.client_hello.version[0]=3;
-    r1.fragment.client_hello.version[1]=0;
+    r1.fragment.client_hello.version[1]=3;
     r1.fragment.client_hello.session_id_length[0]=0;
     r1.fragment.client_hello.cipher_suite_length[0]=0;
     r1.fragment.client_hello.cipher_suite_length[1]=sizeof r1.fragment.client_hello.cipher_suite_list;
@@ -177,11 +178,12 @@ int main(int argc, char *argv[]) {
     r1.fragment.client_hello.cipher_suite_list[2]=0x00;
     r1.fragment.client_hello.cipher_suite_list[3]=0x04; /* SSL_RSA_WITH_RC4_128_MD5 */
     r1.fragment.client_hello.cipher_suite_list[4]=0x00;
-    r1.fragment.client_hello.cipher_suite_list[5]=0x2f; /* TLS_RSA_WITH_AES_128_CBC_SHA */
+    //r1.fragment.client_hello.cipher_suite_list[5]=0x2f; /* TLS_RSA_WITH_AES_128_CBC_SHA */
+    r1.fragment.client_hello.cipher_suite_list[5]=0x9d; /* TLS_RSA_AES256-GCM-SHA384 */
     r1.fragment.client_hello.compression_length[0]=sizeof r1.fragment.client_hello.compression_list;
     r1.fragment.client_hello.compression_list[0]=0;
 
-    setup_record(&r2.rec, 22, offsetof(struct client_key_exchange_fragment, client_key_exchange)+keysize); /* handshake */
+    setup_record2(&r2.rec, 22, offsetof(struct client_key_exchange_fragment, client_key_exchange)+keysize); /* handshake */
     r2.fragment.type=16; /* client_key_exchange */
     r2.fragment.length[0]=0;
     r2.fragment.length[1]=keysize>>8;
@@ -191,10 +193,10 @@ int main(int argc, char *argv[]) {
         r2.fragment.client_key_exchange[i]=random();
 #endif
 
-    setup_record(&r3.rec, 20, sizeof r3.fragment); /* change_cipher_spec */
+    setup_record2(&r3.rec, 20, sizeof r3.fragment); /* change_cipher_spec */
     r3.fragment.type=1;
 
-    setup_record(&r4.rec, 22, sizeof r4.fragment); /* handshake */
+    setup_record2(&r4.rec, 22, sizeof r4.fragment); /* handshake */
 
     base=event_base_new();
     for(i=0; i<clients; ++i)
@@ -206,7 +208,15 @@ int main(int argc, char *argv[]) {
 static void setup_record(record *rec, const byte type, const u_short size) {
     rec->type=type;
     rec->version[0]=3;
-    rec->version[1]=0;
+    rec->version[1]=1;
+    rec->length[0]=size>>8;
+    rec->length[1]=size&0xff;
+}
+
+static void setup_record2(record *rec, const byte type, const u_short size) {
+    rec->type=type;
+    rec->version[0]=3;
+    rec->version[1]=3;
     rec->length[0]=size>>8;
     rec->length[1]=size&0xff;
 }
